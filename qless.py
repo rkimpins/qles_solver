@@ -1,137 +1,126 @@
 import itertools
-from PIL.Image import new
 import board
 import queue
 from is_word import WordLord
 
+
+#TODO
+#make it use only common not weird words (maybe just not 2 letter words)
+#fix repeating problem
+#simulate dice roll
+#let user input letters
+
 WORD_LORD = WordLord()
 
-# generate all the words we can, for each word
-# for each position along the word, generate the words we can build off of that
-# repeat this process 
-# If we aren't able to create any new words, we return
+def solve_qless(letters):
+	size = (len(letters)*2, len(letters)*2) # this is the largest we will ever need the board to be
+	stack = []
+
+	visited = []
+
+	add_first_word_boards_to_stack(stack, letters, size)
+
+	while len(stack) > 0:
+		letters, current_board = stack.pop()
+		if is_valid_board(current_board) and len(letters) == 0:
+			yield current_board
+		if not is_valid_board(current_board):
+			continue
+		if is_valid_board(current_board):
+			for coord, letter in current_board.iterdata():
+				for word in iter_valid_words(letters + letter):
+					left_over_letters = subtract_letters(letters, word)
+					for r_board in place_word(current_board, coord, word, 'horizontal'):
+						if list(r_board.iterdata()) not in visited:
+							stack.append((left_over_letters, r_board))
+							visited.append(list(r_board.iterdata()))
+					for r_board in place_word(current_board, coord, word, 'vertical'):
+						if list(r_board.iterdata()) not in visited:
+							stack.append((left_over_letters, r_board))
+							visited.append(list(r_board.iterdata()))
 
 
-def import_words():
-	filename = 'words.txt'
-	with open(filename, 'r') as f:
-		words = [line.strip() for line in f.readlines()]
-	return words
+def print_qless_solutions(letters):
+	for b in solve_qless(letters):
+		print("SOLVED")
+		print_board(b)
+
+
+def add_first_word_boards_to_stack(board_stack, letters, size):
+	start_board = board.Board(size)
+	for word in iter_valid_words(letters):
+		coord = (size[0]//2, size[1]//2 - len(word)//2)
+		new_b = start_board.copy()
+		for letter in word:
+			new_b[coord] = letter
+			coord = (coord[0], coord[1] + 1)
+		board_stack.append((subtract_letters(letters, word), new_b))
+
+
+def iter_valid_words(letters):
+	for i in range(2, len(letters) + 1):
+		yielded = set()
+		for word in itertools.combinations(letters, i):
+			annagramed = ''.join(sorted(word))
+			for real_word in WORD_LORD.annagrammed_to_words(annagramed):
+				if real_word not in yielded:
+					yielded.add(real_word)
+					yield real_word
 
 
 def is_word(word):
 	return WORD_LORD.is_word(word)
 
 
-def iter_valid_words(letters):
-	# generate all the words we can given the set of letters
-	for i in range(2, len(letters) + 1):
-		yielded = set()
-		for word in itertools.combinations(letters, i):
-			annagramed = ''.join(sorted(word))
-			for real_word in WORD_LORD.annagrammed_to_words(annagramed):
-				#print('SET:')
-				#for x in yielded:
-				#	print(f'{x}-', end='')
-				#print('')
-				#print(f'{real_word=}')
-				if real_word not in yielded:
-					yielded.add(real_word)
-					yield real_word
-			#if is_word(joined_word) and joined_word not in yielded:
-			#	yielded.add(joined_word)
-			#	yield joined_word
-
-
-def valid_board_state(b):
-	return True
-
-
-def solve_qless(letters):
-	size = (20, 20)
-	q = queue.Queue()
-	b = board.Board(size)
-
-	q.put((letters, b))
-
-	while not q.empty():
-		# get next item
-		# if not valid, continue
-		# if it is valid and out of letters, print!!
-		# if valid and letters left, generate all the words we can with the letters left
-		letters, b = q.get()
-		#print_board(b)
-		if valid_board_state(b) and len(letters) == 0:
-			print("SOLVED")
-			print_board(b)
-		if not valid_board_state(b):
-			continue
-		if valid_board_state(b):
-			if number_of_letters_on_board(b) == 0:
-				for word in iter_valid_words(letters):
-					new_b = b.copy()
-					coord = (size[0]//2, size[1]//2)
-					new_b[coord] = word[0]
-					new_b = place_word(new_b, coord, word[1:], 'horizontal')[0]
-					q.put((subtract_letters(letters, word), new_b))
-				continue
-			for coord in find_all_filled_coords(b):
-				new_letters = letters + b[coord]
-				for word in iter_valid_words(letters):
-					# place word
-					left_over_letters = subtract_letters(letters, word)
-					for r_board in place_word(b, coord, word, 'horizontal'):
-						q.put((left_over_letters, r_board))
-					for r_board in place_word(b, coord, word, 'vertical'):
-						q.put((left_over_letters, r_board))
-
 def subtract_letters(letters, subtractor):
-	for char in subtractor:
-		letters = letters.replace(char, '')
-	return letters
+	l_letters = list(letters)
+	for letter in subtractor:
+		if letter in l_letters:
+			l_letters.remove(letter)
+	return ''.join(l_letters)
 
-def place_word(b, coord, word, axis):
+
+def find(word, char):
+	return [i for i, letter in enumerate(word) if letter == char]
+
+
+def place_word(current_board, coord, word, axis):
 	assert axis in ['vertical', 'horizontal']
 	results = []
 
-	#TODO we will deal with multiple cases later
-	char_pos = word.find(b[coord])
-	#char_positions = find(word, b[coord])
-	#if len(char_positions) == 1:
-	#	char_pos = char_positions[0]
-	#else:
-	#	char_pos = char_positions[0]
+	char_positions = find(word, current_board[coord])
+	for char_pos in char_positions:
 	
-	before, after = split_word_by_position(word, char_pos)
-	new_board = b.copy()
+		before, after = split_word_by_position(word, char_pos)
+		new_board = current_board.copy()
 
-	overlapped = False
-	for index, letter in enumerate(before):
-		if axis == 'vertical':
-			coord_negative = coord[0] - index - 1, coord[1]
-		if axis == 'horizontal':
-			coord_negative = coord[0], coord[1] - index - 1
+		overlapped = False
+		for index, letter in enumerate(before):
+			if axis == 'vertical':
+				coord_negative = coord[0] - index - 1, coord[1]
+			if axis == 'horizontal':
+				coord_negative = coord[0], coord[1] - index - 1
 
-		if new_board[coord_negative] is not board.Empty:
-			overlapped = True
-			break
-		new_board[coord_negative] = letter
-	if overlapped:
-		return []
-	overlapped = False
+			if new_board[coord_negative] is not board.Empty:
+				overlapped = True
+				break
+			new_board[coord_negative] = letter
+		if overlapped:
+			return []
+		overlapped = False
 
-	for index, letter in enumerate(after):
-		if axis == 'vertical':
-			coord_positive = coord[0] + index + 1, coord[1]
-		if axis == 'horizontal':
-			coord_positive = coord[0], coord[1] + index + 1
-		if new_board[coord_positive] is not board.Empty:
-			overlapped = True
-		new_board[coord_positive] = letter
-	
-	if overlapped:
-		return []
-	results.append(new_board)
+		for index, letter in enumerate(after):
+			if axis == 'vertical':
+				coord_positive = coord[0] + index + 1, coord[1]
+			if axis == 'horizontal':
+				coord_positive = coord[0], coord[1] + index + 1
+			if new_board[coord_positive] is not board.Empty:
+				overlapped = True
+			new_board[coord_positive] = letter
+		
+		if overlapped:
+			return []
+		results.append(new_board)
 	
 	return results
 
@@ -141,16 +130,8 @@ def number_of_letters_on_board(b):
 
 
 def split_word_by_position(word, char_position):
-	return word[:char_position], word[char_position:]
+	return word[:char_position], word[char_position+1:]
 
-def find(s, ch):
-    return [i for i, ltr in enumerate(s) if ltr == ch]
-
-
-def find_all_filled_coords(b):
-	for coord in b:
-		if b[coord] is not board.Empty:
-			yield coord
 
 def capture_words(b, coord):
 	words = []
@@ -187,7 +168,7 @@ def capture_words(b, coord):
 	return words
 
 
-def valid_board_state(b):
+def is_valid_board(b):
 	for coord, data in b.iterdata():
 		for word in capture_words(b, coord):
 			if len(word) > 1 and not is_word(word):
@@ -201,12 +182,12 @@ def print_board(b):
 		if coord[0] != row:
 			print('|')
 			row = coord[0]
-			#print('-' * 50)
 		if b[coord] is not board.Empty:
 			print(f'|{b[coord]}', end='')
 		else:
 			print('|.', end='')
 	print('|')
+
 
 def boards_equal(b1, b2):
 	for coord, data in b1.iterdata():
@@ -214,13 +195,11 @@ def boards_equal(b1, b2):
 			return False
 	return True
 
+
 def main():
-	#counter = 0
-	#for iter in iter_valid_words('ndhgsklpkyee'):
-		#if counter % 100 == 0:
-		#print(iter)
-		#counter += 1
-	solve_qless('ndhgsklpkyee')
+	#print_qless_solutions('ndhgsklpkyee')
+	print_qless_solutions('ndhgsklpkyeera')
+	#print_qless_solutions('aactm')
 
 
 if __name__ == '__main__':

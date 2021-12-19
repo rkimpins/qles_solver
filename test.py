@@ -3,6 +3,18 @@ import board
 from is_word import WordLord
 
 
+def test_annagrammed_to_words():
+	word_lord = WordLord()
+	assert word_lord.annagrammed_to_words('act') == ['act', 'cat']
+	assert word_lord.annagrammed_to_words('ely') == ['eyl', 'ley', 'lye']
+
+
+
+		
+
+
+
+
 def test_is_word():
 	word_lord = WordLord()
 	assert word_lord.is_word('attack')
@@ -13,31 +25,19 @@ def test_is_word():
 	assert not word_lord.is_word('csa')
 	assert not word_lord.is_word('ajsdofiw')
 	assert not word_lord.is_word('csa')
+	assert not word_lord.is_word('yle')
 
-def test_generate_words():
+def test_iter_valid_words():
 	assert sorted(list(qless.iter_valid_words('tac'))) == ['act', 'at', 'cat', 'ta', 'tc']
 	assert list(qless.iter_valid_words('attack')) == [
 		'at', 'ta', 'aa', 'ak', 'ka', 'tt', 'tc', 'tk', 'att', 'tat', 'taa', 'act', 'cat', 
 		'kat', 'tak', 'ack', 'tck', 'atta', 'tact', 'takt', 'acta', 'kata', 'taka', 'tack', 
 		'katat', 'attack'] 
 	
-
-
-def test_find_all_filled_coords():
-	b = board.Board((3,3))
-	b.populate('abcdefghi')
-
-	assert list(qless.find_all_filled_coords(b)) == [(0,0), (0,1), (0,2), (1,0), (1,1), (1,2), (2,0), (2,1), (2,2)]
-
-	b = board.Board((3,3))
-	b[0, 0] = 'a'
-	b[0, 2] = 'a'
-	b[1, 0] = 'a'
-	b[1, 2] = 'a'
-	b[2, 0] = 'a'
-	b[2, 2] = 'a'
-	assert list(qless.find_all_filled_coords(b)) == [(0, 0), (0, 2), (1, 0), (1, 2), (2, 0), (2, 2)]
-
+	word_lord = WordLord()
+	for word in qless.iter_valid_words('ndhgsklpkyee'):
+		assert word_lord.is_word(word)
+	
 
 def test_number_of_letters_on_board():
 	b = board.Board((3,3))
@@ -109,7 +109,7 @@ def test_capture_words():
 	b[(10, 15)] = 'e'
 	assert sorted(qless.capture_words(b, (10, 10))) == ['cattle', 'tickle']
 
-def test_valid_board_state():
+def test_is_valid_board():
 	b = board.Board((20, 20))
 	b[(8, 10)] = 'c'
 	b[(9, 10)] = 'a'
@@ -122,7 +122,7 @@ def test_valid_board_state():
 	b[(13, 11)] = 'g'
 	b[(13, 11)] = 'g'
 
-	assert not qless.valid_board_state(b)
+	assert not qless.is_valid_board(b)
 
 	b = board.Board((20, 20))
 	b[(8, 10)] = 'c'
@@ -139,7 +139,7 @@ def test_valid_board_state():
 	b[(10, 14)] = 'l'
 	b[(10, 15)] = 'e'
 
-	assert qless.valid_board_state(b)
+	assert qless.is_valid_board(b)
 
 	b = board.Board((20, 20))
 	b[(8, 10)] = 'c'
@@ -153,12 +153,46 @@ def test_valid_board_state():
 	b[(13, 12)] = 'l'
 	b[(13, 13)] = 'l'
 
-	assert not qless.valid_board_state(b)
+	assert not qless.is_valid_board(b)
 
 
 def test_subtract_letters():
-	assert qless.subtract_letters('aaabbbccccddd', 'bc') == 'aaaddd'
-	assert qless.subtract_letters('aaabbbccccddd', 'xz') == 'aaabbbccccddd'
-	assert qless.subtract_letters('aaabbbccccddd', 'dcba') == ''
+	assert qless.subtract_letters('a', 'a') == ''
+	assert qless.subtract_letters('aa', 'a') == 'a'
+	assert qless.subtract_letters('abcde', 'bd') == 'ace'
+	assert qless.subtract_letters('aabbcc', 'abc') == 'abc'
+	assert qless.subtract_letters('abc', 'abd') == 'c'
 
 	
+
+
+def test_solve_qless():
+	letters = 'ndhgsklpkyee'
+	solution_generator = qless.solve_qless(letters)
+	for _ in range(5):
+		b = next(solution_generator)
+		solution_letters = ''.join(x for _, x in b.iterdata())
+		print(solution_letters, letters)
+		qless.print_board(b)
+		assert sorted(solution_letters) == sorted(letters)
+		assert qless.is_valid_board(b)
+
+
+def test_split_word_by_position():
+	assert qless.split_word_by_position('abcdefg', 0) == ('', 'bcdefg')
+	assert qless.split_word_by_position('abcdefg', 6) == ('abcdef', '')
+	assert qless.split_word_by_position('abcdefg', 3) == ('abc', 'efg')
+
+
+def test_add_first_word_boards_to_stack():
+	#add_first_word_boards_to_stack(board_stack, letters, size)
+	assert True
+
+
+def test_find():
+	assert qless.find('abcde', 'a') == [0]
+	assert qless.find('abcde', 'e') == [4]
+	assert qless.find('abcde', 'c') == [2]
+	assert qless.find('abada', 'a') == [0, 2, 4]
+	assert qless.find('aaaaa', 'a') == [0, 1, 2, 3, 4]
+	assert qless.find('', 'a') == []
