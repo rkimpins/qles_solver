@@ -1,7 +1,10 @@
 class WordLord:
 	def __init__(self):
 		self.anagram_dict = {}
-		with open('words.txt', 'r') as f:
+	
+	def load_words(self, word_pack='word_packs/top_25000.txt'):
+		self.anagram_dict = {}
+		with open(word_pack, 'r') as f:
 			for word in f.readlines():
 				word = word.strip()
 				anagrammed = ''.join(sorted(word))

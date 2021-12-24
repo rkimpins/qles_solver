@@ -1,29 +1,29 @@
 import itertools
 import board
 import queue
+import argparse
 from is_word import WordLord
 
 
-#TODO
-#make it use only common not weird words (maybe just not 2 letter words)
-#fix repeating problem
-#simulate dice roll
-#let user input letters
-
 WORD_LORD = WordLord()
 
-def solve_qless(letters):
-	size = (len(letters)*2, len(letters)*2) # this is the largest we will ever need the board to be
+def solve_qless(letters, max_returns=float('inf'), word_pack='word_pack/top_25000.txt'):
+
+	size = (len(letters)*2, len(letters)*2) # handles worst case word placement
 	stack = []
 
 	visited = []
+	solutions_returned = 0
+
+	WORD_LORD.load_words(word_pack=word_pack)
 
 	add_first_word_boards_to_stack(stack, letters, size)
 
-	while len(stack) > 0:
+	while len(stack) > 0 and solutions_returned < max_returns:
 		letters, current_board = stack.pop()
 		if is_valid_board(current_board) and len(letters) == 0:
 			yield current_board
+			solutions_returned += 1
 		if not is_valid_board(current_board):
 			continue
 		if is_valid_board(current_board):
@@ -40,10 +40,19 @@ def solve_qless(letters):
 							visited.append(list(r_board.iterdata()))
 
 
-def print_qless_solutions(letters):
-	for b in solve_qless(letters):
-		print("SOLVED")
-		print_board(b)
+def print_qless_solutions(letters, format='board', file=None, max_returns=float('inf'), word_pack='word_pack/top_25000.txt'):
+	for b in solve_qless(letters, max_returns=max_returns, word_pack=word_pack):
+		if file is not None:
+			with open(file, 'a') as f:
+				if format == 'words':
+					f.write(string_board_words(b))
+				elif format == 'board':
+					f.write(string_board(b))
+		else:
+			if format == 'words':
+				print_board_words(b)
+			elif format == 'board':
+				print_board(b)
 
 
 def add_first_word_boards_to_stack(board_stack, letters, size):
@@ -149,7 +158,8 @@ def capture_words(b, coord):
 		if b[new_coord] is board.Empty:
 			break
 		word = word + b[new_coord]
-	words.append(word)
+	if len(word) > 1:
+		words.append(word)
 
 	word = b[coord]
 	new_coord = coord
@@ -164,7 +174,8 @@ def capture_words(b, coord):
 		if b[new_coord] is board.Empty:
 			break
 		word = word + b[new_coord]
-	words.append(word)
+	if len(word) > 1:
+		words.append(word)
 	return words
 
 
@@ -176,17 +187,39 @@ def is_valid_board(b):
 	return True
 
 
-def print_board(b):
+def capture_all_words(b):
+	words = set()
+	for coord, data in b.iterdata():
+		for word in capture_words(b, coord):
+			words.add(word)
+	return words
+
+
+def string_board_words(b):
+	result = f'b: {[word for word in capture_all_words(b)]}'
+
+
+def print_board_words(b):
+	print(string_board_words(b))
+
+
+def string_board(b):
+	result = ''
 	row = 0
 	for coord in b:
 		if coord[0] != row:
-			print('|')
+			result += '|\n'
 			row = coord[0]
 		if b[coord] is not board.Empty:
-			print(f'|{b[coord]}', end='')
+			result += f'|{b[coord]}'
 		else:
-			print('|.', end='')
-	print('|')
+			result += '|.'
+	result += '|'
+	return result
+
+
+def print_board(b):
+	print(string_board(b))
 
 
 def boards_equal(b1, b2):
@@ -197,9 +230,25 @@ def boards_equal(b1, b2):
 
 
 def main():
-	#print_qless_solutions('ndhgsklpkyee')
-	print_qless_solutions('ndhgsklpkyeera')
-	#print_qless_solutions('aactm')
+	parser = argparse.ArgumentParser(description='Solve a word search puzzle.')
+	parser.add_argument('--word_pack', type=str, default='word_packs/top_25000.txt', help='The file containing the word pack.')
+	parser.add_argument('--format', type=str,
+						default='board',
+						choices=['none', 'words', 'board'],
+						help='The format to output the boards in. Choices are no output, the words that make up the solution, or the full board'
+	)
+	parser.add_argument('--file', type=str, help='The file to output the solution boards to.')
+	parser.add_argument('--search',type=str, default='dfs', choices=['dfs', 'bfs'], help='The search algorithm to use.')
+	parser.add_argument('--letters', default=None, type=str, help='The letters to use in the puzzle.')
+	parser.add_argument('--max', type=float, default=float('inf'), help='The maximum number of boards to output.')
+
+	args = parser.parse_args()
+
+	if args.letters is None:
+		#TODO make this a random letter generator
+		args.letters = 'ndhgsklpkyee' #'ndhgsklpkyeera' #'aactm'
+
+	print_qless_solutions(letters=args.letters, format=args.format, file=args.file, word_pack=args.word_pack, max_returns=args.max)
 
 
 if __name__ == '__main__':
